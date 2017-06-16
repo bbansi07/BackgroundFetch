@@ -2,7 +2,7 @@
 //  AppDelegate.swift
 //  BackgroundFetch
 //
-//  Created by Zeitech Solutions on 16/06/17.
+//  Created by bansi on 16/06/17.
 //
 //
 
@@ -12,10 +12,14 @@ import UIKit
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
-
+    var backgroundTask : UIBackgroundTaskIdentifier?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        application.registerUserNotificationSettings(UIUserNotificationSettings(types:[.sound, .alert, .badge], categories: nil))
+        
+        application.setMinimumBackgroundFetchInterval(3600)
+
         return true
     }
 
@@ -27,6 +31,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationDidEnterBackground(_ application: UIApplication) {
         // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
         // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+        
+        
+        let secondsToStayOpen = UIApplication.shared.backgroundTimeRemaining / 60
+        print("Minutes to stay open is \(secondsToStayOpen)")
+        
+        let defaults = UserDefaults.standard
+        let now = Date().description(with: Locale.current)
+        defaults.set(now, forKey: "suspend")
+
     }
 
     func applicationWillEnterForeground(_ application: UIApplication) {
@@ -41,6 +54,52 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
+    //MARK:- Beckground fetch method
+    
+    func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        
+        let delayTime = DispatchTime.now() + Double(Int64(3 * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC)
+        
+        self.backgroundTask = application.beginBackgroundTask (expirationHandler: {
+            if let bgTask = self.backgroundTask {
+                application.endBackgroundTask(bgTask)
+                self.backgroundTask = nil
+            }
+        })
+        
+        DispatchQueue.main.asyncAfter(deadline: delayTime) {
+            
+            let localNotification = UILocalNotification()
+            
+            let random = arc4random_uniform(3)
+            
+            var result: UIBackgroundFetchResult = .noData
+            
+            let now = Date().description(with: Locale.current)
+            
+            localNotification.alertBody = "No data \(now)"
+            print(random)
+            if random > 1 {
+                localNotification.alertBody = "Fetched data \(now)"
+                result = .newData
+            }
+            
+            
+            
+            UIApplication.shared.scheduleLocalNotification(localNotification)
+            
+            let defaults = UserDefaults.standard
+            
+            defaults.set(now, forKey: "background")
+            
+            completionHandler(result)
+            
+            if let bgTask = self.backgroundTask {
+                application.endBackgroundTask(bgTask)
+                self.backgroundTask = nil
+            }
+        }
+    }
 
 }
 
